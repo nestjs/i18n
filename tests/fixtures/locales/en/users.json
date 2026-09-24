@@ -1,0 +1,11 @@
+{
+  "greeting": "Hello, {name}!",
+  "notFound": "User #{id} was not found",
+  "forbidden": "You are not allowed to see this",
+  "tooYoung": "{property} must be at least {constraint1}",
+  "onlyInEnglish": "This text exists only in English",
+  "apples": {
+    "one": "{count} apple",
+    "other": "{count} apples"
+  }
+}

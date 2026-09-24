@@ -1,0 +1,5 @@
+{
+  "greeting": "Hallo, {name}!",
+  "notFound": "Benutzer #{id} wurde nicht gefunden",
+  "forbidden": "Sie dürfen das nicht sehen"
+}

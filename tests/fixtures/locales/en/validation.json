@@ -1,0 +1,11 @@
+{
+  "isEmail": "{property} must be a valid email address",
+  "minLength": "{property} must be at least {constraint1} characters long",
+  "isNotEmpty": "{property} must not be empty",
+  "too_small": "{property} must have at least {minimum} characters",
+  "invalid_format": {
+    "email": "{property} must be a valid email address"
+  },
+  "min_value": "{property} must be at least {requirement}",
+  "pattern": "{path} must match {expected}"
+}

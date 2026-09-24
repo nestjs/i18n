@@ -1,0 +1,12 @@
+{
+  "greeting": "Cześć, {name}!",
+  "notFound": "Nie znaleziono użytkownika #{id}",
+  "forbidden": "Nie masz dostępu do tego zasobu",
+  "tooYoung": "{property} musi wynosić co najmniej {constraint1}",
+  "apples": {
+    "one": "{count} jabłko",
+    "few": "{count} jabłka",
+    "many": "{count} jabłek",
+    "other": "{count} jabłka"
+  }
+}
