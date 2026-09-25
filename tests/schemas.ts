@@ -49,6 +49,14 @@ export const signupSchema: StandardSchemaV1<unknown, Record<string, unknown>> = 
         // unknown code, no translation → Nest's default "path: message"
         issues.push({ code: 'custom', path: ['coupon'], message: 'Coupon expired' } as StandardSchemaV1.Issue);
       }
+      if (value.slug !== undefined) {
+        // ArkType style, with a param whose getter throws until the library computes it
+        issues.push(new LazyIssue(['slug'], { code: () => 'pattern' }));
+      }
+      if (value.handle !== undefined) {
+        // not even the code reads: keeps the library's message
+        issues.push(new LazyIssue(['handle'], {}));
+      }
       return issues.length ? { issues } : { value };
     },
   },
@@ -64,5 +72,30 @@ class ArkLikeIssue implements StandardSchemaV1.Issue {
   }
   get message() {
     return 'nickname must be matched by ^[a-z]+$';
+  }
+}
+
+class LazyIssue implements StandardSchemaV1.Issue {
+  readonly message = 'must be a valid slug';
+
+  constructor(
+    readonly path: PropertyKey[],
+    private readonly getters: { code?: () => string },
+  ) {}
+
+  get code(): string {
+    if (!this.getters.code) {
+      throw new Error('code not computed');
+    }
+    return this.getters.code();
+  }
+  get expected() {
+    return '/^[a-z-]+$/';
+  }
+  get minimum(): number {
+    throw new Error('minimum not computed');
+  }
+  get origin(): string {
+    throw new Error('origin not computed');
   }
 }

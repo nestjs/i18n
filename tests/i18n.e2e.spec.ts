@@ -202,6 +202,12 @@ describe.each(adapters)('i18n over $name', ({ name }) => {
       expect(de.body.message[0]).toBe('name must have at least 3 characters');
     });
 
+    it('translates issues whose getters throw, instead of failing the request', async () => {
+      const body = { name: 'Ada', email: 'a@b.co', age: 30, nickname: 'ada', slug: 'Not A Slug', handle: '@' };
+      const res = await http().post('/signup?lang=pl').send(body).expect(400);
+      expect(res.body.message).toEqual(['slug musi pasować do /^[a-z-]+$/', 'handle: must be a valid slug']);
+    });
+
     it('passes valid payloads', async () => {
       const body = { name: 'Ada', email: 'a@b.co', age: 30, nickname: 'ada' };
       expect((await http().post('/signup').send(body).expect(201)).body).toEqual(body);

@@ -72,4 +72,32 @@ describe('JsonI18nLoader', () => {
     expect(Object.keys(catalogs.en).sort()).toEqual(['__proto__', 'users']);
     expect((catalogs.en as Record<string, unknown>).polluted).toBeUndefined();
   });
+
+  it('reads only .json files inside locale directories', async () => {
+    await write('en/notes.md', '# notes');
+    await write('en/users.yaml', 'hi: Hi');
+    await write('README.json', { not: 'a locale' });
+    await write('pl/.keep', '');
+    expect(await load()).toEqual({ en: { users: { hi: 'Hi' } }, pl: {} });
+  });
+
+  it('skips a dangling symbolic link where a locale directory would be', async () => {
+    await symlink(join(dir, 'missing'), join(dir, 'de'));
+    expect(await load()).toEqual({ en: { users: { hi: 'Hi' } } });
+  });
+
+  it('passes on errors other than a missing directory', async () => {
+    await write('file.json', {});
+    await expect(new JsonI18nLoader({ path: join(dir, 'file.json') }).load()).rejects.toMatchObject({
+      code: 'ENOTDIR',
+    });
+  });
+
+  it('does not watch unless asked to', () => {
+    const stop = new JsonI18nLoader({ path: dir }).watch(() => {
+      throw new Error('never called');
+    });
+    expect(stop).toBeTypeOf('function');
+    expect(() => stop()).not.toThrow();
+  });
 });
