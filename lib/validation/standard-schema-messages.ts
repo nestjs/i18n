@@ -38,22 +38,31 @@ export function isTranslatedIssue(issue: StandardSchemaV1.Issue): boolean {
 
 /** The built-in candidate keys: `<code>.<format>`, `<code>.<origin>`, `<code>`. */
 export function defaultIssueKeys(issue: StandardSchemaV1.Issue): string[] {
-  const any = issue as unknown as Record<string, unknown>;
-  const code = typeof any.code === 'string' ? any.code
-    : typeof any.type === 'string' ? any.type : undefined;
+  const [rawCode, type, format, origin] = ['code', 'type', 'format', 'origin'].map((name) => readField(issue, name));
+  const code = typeof rawCode === 'string' ? rawCode
+    : typeof type === 'string' ? type : undefined;
   if (!code) {
     return [];
   }
 
   const keys: string[] = [];
-  if (typeof any.format === 'string') {
-    keys.push(`${code}.${any.format}`);
+  if (typeof format === 'string') {
+    keys.push(`${code}.${format}`);
   }
-  if (typeof any.origin === 'string') {
-    keys.push(`${code}.${any.origin}`);
+  if (typeof origin === 'string') {
+    keys.push(`${code}.${origin}`);
   }
   keys.push(code);
   return keys;
+}
+
+/** A field of an issue, `undefined` when it's a getter that throws (class-based issues compute some lazily). */
+function readField(issue: StandardSchemaV1.Issue, name: string): unknown {
+  try {
+    return (issue as unknown as Record<string, unknown>)[name];
+  } catch {
+    return undefined;
+  }
 }
 
 function issuePath(issue: StandardSchemaV1.Issue): string[] {
@@ -164,21 +173,15 @@ function withMessage(issue: StandardSchemaV1.Issue, message: string): StandardSc
 }
 
 function issueArgs(issue: StandardSchemaV1.Issue): Record<string, unknown> {
-  const any = issue as unknown as Record<string, unknown>;
   const args: Record<string, unknown> = {};
   const isPrimitive = (v: unknown) =>
     ['string', 'number', 'boolean', 'bigint'].includes(typeof v);
 
-  for (const name of [...Object.keys(any), ...KNOWN_PARAMS]) {
+  for (const name of [...Object.keys(issue), ...KNOWN_PARAMS]) {
     if (name === 'message' || name === 'path') {
       continue;
     }
-    let value: unknown;
-    try {
-      value = any[name];
-    } catch {
-      continue; // a getter that throws is no param
-    }
+    const value = readField(issue, name);
     if (isPrimitive(value)) {
       args[name] = value;
     }
@@ -189,7 +192,8 @@ function issueArgs(issue: StandardSchemaV1.Issue): Record<string, unknown> {
   args.property = path[path.length - 1] ?? '';
   args.message = issue.message;
 
-  const count = [any.minimum, any.maximum, any.requirement].find(
+  // From args, which hold only what read without throwing.
+  const count = [args.minimum, args.maximum, args.requirement].find(
     (v) => typeof v === 'number' || typeof v === 'bigint',
   );
   if (count !== undefined && args.count === undefined) {
