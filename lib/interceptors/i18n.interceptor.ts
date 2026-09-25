@@ -5,7 +5,7 @@ import {
   type NestInterceptor,
 } from '@nestjs/common';
 import { from, Observable, switchMap } from 'rxjs';
-import { i18nStorage } from '../context/i18n.storage.js';
+import { changeLocale, i18nStorage, type I18nStore } from '../context/i18n.storage.js';
 import { I18nService } from '../i18n.service.js';
 import type {
   LocaleResolverInput,
@@ -23,10 +23,11 @@ interface RequestLike {
 /**
  * Enters the locale context where the HTTP middleware doesn't: microservices,
  * WebSocket gateways, GraphQL subscriptions, and GraphQL drivers mounted
- * outside Nest's middleware. A no-op when the context is already entered.
- * Interceptors run after guards, so guards on those paths don't see the
- * locale (internal; see
- * https://docs.nestjs.com/application/i18n#microservices-and-websocket-gateways).
+ * outside Nest's middleware. Interceptors run after guards, so guards on those
+ * paths don't see the locale
+ * (https://docs.nestjs.com/application/i18n#microservices-and-websocket-gateways).
+ * Where the middleware has entered the context, runs the `afterGuards`
+ * resolvers it left (internal).
  */
 @Injectable()
 export class I18nInterceptor implements NestInterceptor {
@@ -36,21 +37,45 @@ export class I18nInterceptor implements NestInterceptor {
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    if (i18nStorage.getStore()) {
+    const store = i18nStorage.getStore();
+    if (!store) {
+      return from(this.resolution.resolve(toResolverInput(context))).pipe(
+        switchMap((locale) => within({ locale, service: this.i18n }, next)),
+      );
+    }
+
+    const pending = store.pending;
+    if (!pending) {
       return next.handle();
     }
 
-    return from(this.resolution.resolve(toResolverInput(context))).pipe(
-      switchMap(
-        (locale) =>
-          new Observable((subscriber) =>
-            i18nStorage.run({ locale, service: this.i18n }, () =>
-              next.handle().subscribe(subscriber),
-            ),
-          ),
-      ),
-    );
+    pending.settled ??= this.settle(store, pending, context);
+    return from(pending.settled).pipe(switchMap(() => within(store, next)));
   }
+
+  private async settle(
+    store: I18nStore,
+    pending: NonNullable<I18nStore['pending']>,
+    context: ExecutionContext,
+  ) {
+    const locale = await this.resolution.first(pending.resolvers, toResolverInput(context));
+
+    // `setLocale()` may have settled it meanwhile: an explicit choice wins.
+    if (store.pending !== pending) {
+      return;
+    }
+    store.pending = undefined;
+    if (locale) {
+      changeLocale(store, locale);
+    }
+  }
+}
+
+/** Subscribes to the handler inside `store`, so everything it awaits sees the locale. */
+function within(store: I18nStore, next: CallHandler): Observable<unknown> {
+  return new Observable((subscriber) =>
+    i18nStorage.run(store, () => next.handle().subscribe(subscriber)),
+  );
 }
 
 function toResolverInput(context: ExecutionContext): LocaleResolverInput {

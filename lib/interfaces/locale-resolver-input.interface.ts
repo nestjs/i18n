@@ -11,9 +11,10 @@ export interface LocaleResolverInput {
   headers: Record<string, string | string[] | undefined>;
   query: Record<string, unknown>;
   /**
-   * Set when the locale is resolved by the interceptor instead of the HTTP
-   * middleware: microservices, WebSocket gateways, GraphQL subscriptions,
-   * and GraphQL drivers mounted outside Nest's middleware.
+   * Set when the locale is resolved after guards: for `afterGuards`
+   * resolvers, and for every resolver where the HTTP middleware doesn't run
+   * (microservices, WebSocket gateways, GraphQL subscriptions, and GraphQL
+   * drivers mounted outside Nest's middleware).
    */
   executionContext?: ExecutionContext;
 }

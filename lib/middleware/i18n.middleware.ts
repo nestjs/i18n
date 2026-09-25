@@ -1,5 +1,5 @@
 import { Inject, Injectable, type NestMiddleware } from '@nestjs/common';
-import { i18nStorage } from '../context/i18n.storage.js';
+import { i18nStorage, type I18nStore } from '../context/i18n.storage.js';
 import { I18N_MODULE_OPTIONS } from '../i18n.constants.js';
 import { I18nService } from '../i18n.service.js';
 import type {
@@ -9,15 +9,19 @@ import { LocaleResolution } from '../services/locale-resolution.service.js';
 import { queryOf } from '../utils/request.util.js';
 
 interface ResponseLike {
+  headersSent?: boolean;
   getHeader?(name: string): unknown;
   setHeader?(name: string, value: string): unknown;
   writeHead?(...args: unknown[]): unknown;
 }
 
+type WritableResponse = ResponseLike & Required<Pick<ResponseLike, 'setHeader'>>;
+
 /**
  * Resolves the request locale and runs the rest of the request pipeline
  * (guards, interceptors, pipes, handler, exception filters) inside the
- * locale context. Receives the raw request on both Express and Fastify
+ * locale context. `afterGuards` resolvers ranked above the match are left
+ * to the interceptor. Receives the raw request on both Express and Fastify
  * (via @fastify/middie), so query parsing is done here. Also sets
  * `Content-Language` and `Vary` unless `responseHeaders: false` (internal).
  */
@@ -35,20 +39,29 @@ export class I18nMiddleware implements NestMiddleware {
     next: (err?: unknown) => void,
   ) {
     const query = queryOf(req.originalUrl ?? req.url);
-    const locale = await this.resolution.resolve({ headers: req.headers, query });
+    const { locale, deferred } = await this.resolution.resolveBeforeGuards({
+      headers: req.headers,
+      query,
+    });
 
-    if (this.options.responseHeaders !== false) {
-      this.setHeaders(res, locale);
+    const store: I18nStore = { locale, service: this.i18n };
+    if (deferred.length) {
+      store.pending = { resolvers: deferred };
     }
 
-    i18nStorage.run({ locale, service: this.i18n }, () => next());
+    if (this.options.responseHeaders !== false && hasSetHeader(res)) {
+      this.setHeaders(res, locale);
+      store.onChange = (next) => {
+        if (!res.headersSent) {
+          res.setHeader('Content-Language', next);
+        }
+      };
+    }
+
+    i18nStorage.run(store, () => next());
   }
 
-  private setHeaders(res: ResponseLike, locale: string) {
-    if (typeof res?.setHeader !== 'function') {
-      return;
-    }
-
+  private setHeaders(res: WritableResponse, locale: string) {
     res.setHeader('Content-Language', locale);
 
     const vary = this.resolution.varyHeaders;
@@ -74,6 +87,10 @@ export class I18nMiddleware implements NestMiddleware {
       return writeHead.apply(this, args);
     };
   }
+}
+
+function hasSetHeader(res: ResponseLike): res is WritableResponse {
+  return typeof res?.setHeader === 'function';
 }
 
 /**

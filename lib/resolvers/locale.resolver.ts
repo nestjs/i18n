@@ -14,6 +14,16 @@ export abstract class LocaleResolver {
   declare readonly varyHeaders?: readonly string[];
 
   /**
+   * Run after guards, with the `executionContext`, instead of before them:
+   * for a locale saved on the user an authentication guard identifies.
+   * Keeps its rank among the resolvers. On HTTP, guards (and errors they
+   * throw) see the locale of the resolvers before guards; the handler sees
+   * this resolver's, when it ranks above that one and returns a supported
+   * locale. Runs once per request.
+   */
+  declare readonly afterGuards?: boolean;
+
+  /**
    * Return a locale candidate, an ordered list of candidates, or nothing.
    * The first candidate (across all resolvers) that matches a supported
    * locale wins.
