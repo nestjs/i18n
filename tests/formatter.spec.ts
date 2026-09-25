@@ -1,6 +1,6 @@
 /**
- * Message formatting: the default `{name}` formatter, and the `formatter`
- * option for another syntax.
+ * Message formatting: the default `{name}` formatter with `{{` and `}}` for
+ * literal braces, and the `formatter` option for another syntax.
  */
 import { Injectable, Module } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -17,6 +17,9 @@ import {
 
 const catalogs: I18nCatalogs = {
   en: {
+    literal: 'Write {{id}} to insert the order number, here {id}.',
+    wrapped: '{{{id}}}',
+    json: '{{ "id": {id} }}',
     unknown: 'Order {id} of {customer}',
     notNames: 'Keep { id }, {first-name} and {} as written.',
     lone: 'A lone { or } stays.',
@@ -50,6 +53,16 @@ describe('the default formatter', () => {
 
   beforeAll(async () => {
     i18nService = await serviceWith();
+  });
+
+  it('reads {{ and }} as literal braces', () => {
+    const args = { id: 1002 };
+
+    expect(i18nService.translate('literal', { args })).toBe(
+      'Write {id} to insert the order number, here 1002.',
+    );
+    expect(i18nService.translate('wrapped', { args })).toBe('{1002}');
+    expect(i18nService.translate('json', { args })).toBe('{ "id": 1002 }');
   });
 
   it('leaves placeholders without an argument, and non-names, as written', () => {
