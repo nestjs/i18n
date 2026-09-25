@@ -55,7 +55,7 @@ class UsersService {
 @Module({ providers: [UsersService], exports: [UsersService] })
 class UsersModule {}
 
-/** The README's resolver: a user's saved locale, read from the session before guards run. */
+/** A user's saved locale, read from the session cookie before guards run. */
 @Injectable()
 class ProfileLocaleResolver extends LocaleResolver {
   override readonly varyHeaders = ['Cookie'];
@@ -83,7 +83,7 @@ class MessagesRepository {
 @Module({ providers: [MessagesRepository], exports: [MessagesRepository] })
 class MessagesModule {}
 
-/** The README's loader class: catalogs from a repository Nest injects. */
+/** A loader class: catalogs from a repository Nest injects. */
 @Injectable()
 class DatabaseI18nLoader extends I18nLoader {
   constructor(private readonly messagesRepository: MessagesRepository) {
