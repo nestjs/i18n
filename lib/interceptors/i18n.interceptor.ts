@@ -25,7 +25,8 @@ interface RequestLike {
  * WebSocket gateways, GraphQL subscriptions, and GraphQL drivers mounted
  * outside Nest's middleware. A no-op when the context is already entered.
  * Interceptors run after guards, so guards on those paths don't see the
- * locale (internal; see the README's "What works where").
+ * locale (internal; see
+ * https://docs.nestjs.com/application/i18n#microservices-and-websocket-gateways).
  */
 @Injectable()
 export class I18nInterceptor implements NestInterceptor {
