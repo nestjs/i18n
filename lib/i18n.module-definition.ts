@@ -5,6 +5,8 @@ import {
   type Provider,
   type Type,
 } from '@nestjs/common';
+import { I18nMessageFormatter } from './formatters/i18n-message.formatter.js';
+import { PlaceholderMessageFormatter } from './formatters/placeholder-message.formatter.js';
 import { I18N_MODULE_OPTIONS, I18N_RESOLVERS } from './i18n.constants.js';
 import type {
   I18nModuleOptions,
@@ -18,21 +20,24 @@ import type { LocaleResolver } from './resolvers/locale.resolver.js';
 /**
  * Top-level options of `forRoot()` and `forRootAsync()`. They decide which
  * providers exist, so they're known when the module is defined. Only here can
- * `loader` and `resolvers` be classes, which Nest instantiates with DI.
+ * `loader`, `resolvers` and `formatter` be classes, which Nest instantiates
+ * with DI.
  */
 export interface I18nModuleExtras {
   /** An `I18nLoader` instance, or a loader class Nest instantiates. */
   loader?: I18nLoader | Type<I18nLoader>;
   /** Locale resolvers, tried in order: instances, or classes Nest instantiates. */
   resolvers?: (LocaleResolver | Type<LocaleResolver>)[];
-  /** Modules whose exported providers the loader and resolver classes inject. */
+  /** An `I18nMessageFormatter` instance, or a formatter class Nest instantiates. */
+  formatter?: I18nMessageFormatter | Type<I18nMessageFormatter>;
+  /** Modules whose exported providers the loader, resolver and formatter classes inject. */
   imports?: ModuleMetadata['imports'];
   /** Register the module globally. Default `true`. */
   isGlobal?: boolean;
 }
 
 /** `forRoot()` takes the values and the top-level options together. `loader` is required. */
-export type I18nForRootOptions = Omit<I18nModuleOptions, 'loader' | 'resolvers'> &
+export type I18nForRootOptions = Omit<I18nModuleOptions, 'loader' | 'resolvers' | 'formatter'> &
   I18nModuleExtras &
   Required<Pick<I18nModuleExtras, 'loader'>>;
 
@@ -51,7 +56,13 @@ export const { ConfigurableModuleClass, ASYNC_OPTIONS_TYPE } =
     .setClassMethodName('forRoot')
     .setFactoryMethodName('createI18nOptions')
     .setExtras<I18nModuleExtras>(
-      { isGlobal: true, imports: undefined, loader: undefined, resolvers: undefined },
+      {
+        isGlobal: true,
+        imports: undefined,
+        loader: undefined,
+        resolvers: undefined,
+        formatter: undefined,
+      },
       (definition, extras) => ({
         ...definition,
         global: extras.isGlobal ?? true,
@@ -61,6 +72,7 @@ export const { ConfigurableModuleClass, ASYNC_OPTIONS_TYPE } =
           ...(definition.providers ?? []).map((provider) => checkingResult(provider, extras)),
           loaderProvider(extras.loader),
           ...resolverProviders(extras.resolvers),
+          formatterProvider(extras.formatter),
         ],
       }),
     )
@@ -69,7 +81,7 @@ export const { ConfigurableModuleClass, ASYNC_OPTIONS_TYPE } =
 /**
  * What `forRootAsync()` takes: `useFactory` (with `inject`), `useClass` or
  * `useExisting`, next to the top-level options (`loader`, `resolvers`,
- * `imports`, `isGlobal`).
+ * `formatter`, `imports`, `isGlobal`).
  */
 export type I18nModuleAsyncOptions = typeof ASYNC_OPTIONS_TYPE;
 
@@ -124,7 +136,7 @@ function checkResult(options: I18nModuleOptions, extras: I18nModuleExtras): I18n
     }
   }
 
-  for (const key of ['loader', 'resolvers'] as const) {
+  for (const key of ['loader', 'resolvers', 'formatter'] as const) {
     if (options[key] === undefined) {
       continue;
     }
@@ -164,6 +176,21 @@ function loaderProvider(loader: I18nModuleExtras['loader']): Provider {
   return isClass(loader)
     ? { provide: I18nLoader, useClass: loader }
     : { provide: I18nLoader, useValue: loader };
+}
+
+function formatterProvider(formatter: I18nModuleExtras['formatter']): Provider {
+  if (formatter === undefined) {
+    return {
+      provide: I18nMessageFormatter,
+      inject: [I18N_MODULE_OPTIONS],
+      useFactory: (options: I18nModuleOptions) =>
+        options.formatter ?? new PlaceholderMessageFormatter(),
+    };
+  }
+
+  return isClass(formatter)
+    ? { provide: I18nMessageFormatter, useClass: formatter }
+    : { provide: I18nMessageFormatter, useValue: formatter };
 }
 
 function resolverProviders(resolvers: I18nModuleExtras['resolvers']): Provider[] {

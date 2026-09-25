@@ -1,3 +1,4 @@
+import type { I18nMessageFormatter } from '../formatters/i18n-message.formatter.js';
 import type { I18nLoader } from '../loaders/i18n.loader.js';
 import type { LocaleResolver } from '../resolvers/locale.resolver.js';
 
@@ -41,6 +42,11 @@ export interface I18nModuleOptions {
   loader?: I18nLoader;
   /** Locale resolvers, tried in order. Default `[new AcceptLanguageLocaleResolver()]`. */
   resolvers?: LocaleResolver[];
+  /**
+   * Turns messages into text, such as an ICU MessageFormat formatter. The
+   * default fills `{name}` placeholders.
+   */
+  formatter?: I18nMessageFormatter;
   /** Used when no resolver finds a supported locale, and outside requests. Default `'en'`. */
   defaultLocale?: string;
   /**

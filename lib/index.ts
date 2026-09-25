@@ -30,6 +30,9 @@ export * from './errors/index.js';
 // Catalog loaders
 export * from './loaders/index.js';
 
+// Message formatting: extend it for another message syntax, such as ICU
+export { I18nMessageFormatter } from './formatters/index.js';
+
 // Locale resolvers
 export {
   LocaleResolver,

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { i18nStorage } from './context/i18n.storage.js';
 import { I18nMissingKeyError } from './errors/i18n-missing-key.error.js';
+import { I18nMessageFormatter } from './formatters/i18n-message.formatter.js';
 import { I18N_CATALOGS, I18N_MODULE_OPTIONS } from './i18n.constants.js';
 import type {
   I18nKey,
@@ -73,6 +74,7 @@ export class I18nService<T = I18nRegisteredTranslations>
     @Inject(I18N_MODULE_OPTIONS) private readonly options: I18nModuleOptions,
     @Inject(I18N_CATALOGS) private catalogs: I18nCatalogs,
     private readonly loader: I18nLoader,
+    private readonly messageFormatter: I18nMessageFormatter,
   ) {
     this.defaultLocaleValue = options.defaultLocale ?? 'en';
     checkOptions(options, this.defaultLocaleValue);
@@ -117,12 +119,16 @@ export class I18nService<T = I18nRegisteredTranslations>
 
     for (const candidate of chain.lookup) {
       const value = get(catalogs, candidate, key);
+      // A message of the locale's own chain (`de` for `de-AT`) is formatted
+      // for the locale; one from the default locale, in its own language.
+      const own = chain.own.has(candidate);
+      const formatLocale = own ? locale : candidate;
       let text: string | undefined;
       if (typeof value === 'string') {
         text = value;
       } else if (value) {
         // Plural forms. Without a numeric count there's no form to pick, so `other`.
-        const form = typeof args.count === 'number' ? this.plural(candidate, args.count) : 'other';
+        const form = typeof args.count === 'number' ? this.plural(formatLocale, args.count) : 'other';
         const selected = ownValue(value, form) ?? ownValue(value, 'other');
         if (typeof selected === 'string') {
           text = selected;
@@ -133,10 +139,10 @@ export class I18nService<T = I18nRegisteredTranslations>
         continue;
       }
 
-      if (!chain.own.has(candidate)) {
+      if (!own) {
         this.onFallback(key, locale, candidate);
       }
-      return interpolate(text, args);
+      return this.messageFormatter.format(text, args, formatLocale);
     }
 
     return this.onMissing(key, locale);
@@ -490,22 +496,4 @@ function get(
     node = ownValue(node, part);
   }
   return node as string | I18nCatalog | undefined;
-}
-
-function interpolate(text: string, args: Record<string, unknown>): string {
-  return text.replace(/\{(\w+)\}/g, (match, name: string) =>
-    Object.hasOwn(args, name) ? toText(args[name]) : match,
-  );
-}
-
-/** `String(value)`, except that it never throws (a null-prototype object has no string form). */
-function toText(value: unknown): string {
-  if (typeof value === 'string') {
-    return value;
-  }
-  try {
-    return String(value);
-  } catch {
-    return Object.prototype.toString.call(value);
-  }
 }
