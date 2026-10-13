@@ -55,7 +55,7 @@
     "class-transformer": "0.5.1",
     "class-validator": "0.14.4",
     "graphql": "16.14.2",
-    "graphql-ws": "6.3.0",
+    "graphql-ws": "6.4.0",
     "husky": "9.1.7",
     "lint-staged": "17.6.0",
     "oxlint": "1.87.0",
