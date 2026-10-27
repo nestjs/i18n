@@ -67,6 +67,6 @@ export class I18nModule
   }
 
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(I18nMiddleware).forRoutes('*');
+    consumer.apply(I18nMiddleware).forRoutes('{*path}');
   }
 }

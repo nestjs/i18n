@@ -310,15 +310,25 @@ describe.each(adapters)('the request locale in application code over $name', ({ 
 
 describe.each(adapters)('a global prefix over $name', ({ name }) => {
   let app: INestApplication;
+  const warnings: string[] = [];
 
   beforeAll(async () => {
     app = await createApp(name, OrdersAppModule, {
       setup: (a) => {
+        a.useLogger({
+          log: () => {},
+          error: () => {},
+          warn: (message: unknown) => warnings.push(String(message)),
+        });
         a.setGlobalPrefix('api');
       },
     });
   });
   afterAll(() => app.close());
+
+  it('registers the middleware without a legacy route path warning', () => {
+    expect(warnings.join('\n')).not.toContain('Unsupported route path');
+  });
 
   it('the middleware runs under the prefix, so routes, pipes and headers see the locale', async () => {
     const found = await request(app.getHttpServer()).get('/api/orders/1001?lang=pl').expect(200);
