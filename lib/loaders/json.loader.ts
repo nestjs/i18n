@@ -17,6 +17,8 @@ const WATCH_DEBOUNCE = 100;
 /**
  * Loads `<path>/<locale>/**\/*.json`. Each file becomes a namespace named
  * after the file (`en/users.json` → `users.*`); sub-directories nest further.
+ * A file and a directory of one name merge (`en/users.json` and
+ * `en/users/admin.json`), and loading fails on a key that both define.
  * Symbolic links are followed. Hidden entries (names starting with `.`) are
  * skipped: editor lock files, macOS metadata, Kubernetes ConfigMap internals.
  */
@@ -125,16 +127,42 @@ async function readTree(dir: string, ancestors: string[]): Promise<I18nCatalog> 
     const full = join(dir, entry.name);
     const kind = await kindOf(entry, full);
     if (kind === 'directory') {
-      define(tree, entry.name, await readTree(full, [...ancestors, real]));
+      merge(tree, entry.name, await readTree(full, [...ancestors, real]), full);
     } else if (kind === 'file' && extname(entry.name) === '.json') {
+      let content: unknown;
       try {
-        define(tree, basename(entry.name, '.json'), JSON.parse(await readFile(full, 'utf8')));
+        content = JSON.parse(await readFile(full, 'utf8'));
       } catch (err) {
         throw new Error(`${full}: ${(err as Error).message}`);
       }
+      merge(tree, basename(entry.name, '.json'), content, full);
     }
   }
   return tree;
+}
+
+/**
+ * Adds a file's or a directory's content to `tree`. Entries come in no fixed
+ * order, so neither side may replace the other: objects merge, anything else
+ * under one name is an error. `path` is the dotted key, for that error.
+ */
+function merge(tree: object, key: string, value: unknown, source: string, path = key) {
+  if (!Object.hasOwn(tree, key)) {
+    define(tree, key, value);
+    return;
+  }
+
+  const current = (tree as Record<string, unknown>)[key];
+  if (!isObject(current) || !isObject(value)) {
+    throw new Error(`${source}: ${JSON.stringify(path)} is defined twice`);
+  }
+  for (const [name, child] of Object.entries(value)) {
+    merge(current, name, child, source, `${path}.${name}`);
+  }
+}
+
+function isObject(value: unknown): value is object {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 /** What an entry is, following symbolic links. A dangling link is neither. */
