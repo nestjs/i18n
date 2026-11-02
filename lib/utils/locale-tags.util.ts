@@ -16,6 +16,11 @@ export function suggestLocaleTag(tag: string): string | undefined {
   return isLocaleTag(candidate) ? Intl.getCanonicalLocales(candidate)[0] : undefined;
 }
 
+/** Whether two language tags have the same primary language: `de-AT` and `de`. */
+export function sameLanguage(first: string, second: string): boolean {
+  return first.split('-')[0].toLowerCase() === second.split('-')[0].toLowerCase();
+}
+
 /**
  * The next shorter tag in an RFC 4647 lookup, lower-cased input assumed:
  * `zh-hant-tw` → `zh-hant` → `zh` → `''`. A trailing singleton (`x`, `u`)
