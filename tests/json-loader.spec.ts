@@ -22,6 +22,31 @@ describe('JsonI18nLoader', () => {
     expect(await load()).toEqual({ en: { users: { hi: 'Hi' }, admin: { audit: { title: 'Audit log' } } } });
   });
 
+  describe('when a file and a directory share a name', () => {
+    it('merges them into one namespace', async () => {
+      await write('en/users/admin.json', { title: 'Admins' });
+      expect(await load()).toEqual({ en: { users: { hi: 'Hi', admin: { title: 'Admins' } } } });
+    });
+
+    it('merges them on every level', async () => {
+      await write('en/users.json', { admin: { hi: 'Hi' } });
+      await write('en/users/admin.json', { title: 'Admins' });
+      expect(await load()).toEqual({ en: { users: { admin: { hi: 'Hi', title: 'Admins' } } } });
+    });
+
+    it('fails on a key that both define, naming it', async () => {
+      await write('en/users.json', { admin: { title: 'From the file' } });
+      await write('en/users/admin.json', { title: 'From the directory' });
+      await expect(load()).rejects.toThrow('"users.admin.title" is defined twice');
+    });
+
+    it('fails when the file is not an object', async () => {
+      await write('en/users.json', 'null');
+      await write('en/users/admin.json', { title: 'Admins' });
+      await expect(load()).rejects.toThrow('"users" is defined twice');
+    });
+  });
+
   it('follows symbolic links to locale directories, namespaces and files', async () => {
     const shared = await mkdtemp(join(tmpdir(), 'nest-i18n-shared-'));
     try {
