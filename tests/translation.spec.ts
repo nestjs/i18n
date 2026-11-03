@@ -3,6 +3,7 @@ import { Test } from '@nestjs/testing';
 import {
   I18nContext,
   I18nLoader,
+  I18nMessageFormatter,
   I18nMissingKeyError,
   I18nModule,
   I18nService,
@@ -160,6 +161,42 @@ describe('translation', () => {
       expect(i18n.matchLocale('pt-BR')).toBe('pt');
       expect(i18n.translate('hi', { locale: 'pt-BR' })).toBe('Hola');
       expect(i18n.translate('a', { locale: 'pt' })).toBe('a');
+    });
+
+    describe('to another language', () => {
+      const pluralCatalogs = {
+        de: {},
+        en: { files: { one: '{count} file', other: '{count} files' } },
+      };
+
+      it.each([
+        // Japanese has no singular, and French treats 0 as one.
+        ['ja', 1, '1 file'],
+        ['fr', 0, '0 files'],
+      ])('pick the plural form by the language of the message: %s, %d', async (locale, count, text) => {
+        const { i18n } = await create({
+          loader: new InMemoryI18nLoader(pluralCatalogs),
+          defaultLocale: 'de',
+          fallbacks: { ja: 'en', fr: 'en' },
+        });
+        expect(i18n.translate('files', { locale, args: { count } })).toBe(text);
+      });
+
+      it('format the message for its language, and within a language for the locale', async () => {
+        class LocaleFormatter extends I18nMessageFormatter {
+          format(_message: string, _args: Record<string, unknown>, locale: string) {
+            return locale;
+          }
+        }
+        const { i18n } = await create({
+          loader: new InMemoryI18nLoader({ de: { a: 'a' }, en: { b: 'b' } }),
+          defaultLocale: 'de',
+          formatter: new LocaleFormatter(),
+          fallbacks: { ja: 'en', 'de-AT': 'de' },
+        });
+        expect(i18n.translate('b', { locale: 'ja' })).toBe('en');
+        expect(i18n.translate('a', { locale: 'de-AT' })).toBe('de-AT');
+      });
     });
   });
 

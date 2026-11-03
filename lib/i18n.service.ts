@@ -28,6 +28,7 @@ import { I18nLoader } from './loaders/i18n.loader.js';
 import {
   isLocaleTag,
   parentTag,
+  sameLanguage,
   suggestLocaleTag,
 } from './utils/locale-tags.util.js';
 import { quote } from './utils/quote.util.js';
@@ -119,10 +120,11 @@ export class I18nService<T = I18nRegisteredTranslations>
 
     for (const candidate of chain.lookup) {
       const value = get(catalogs, candidate, key);
-      // A message of the locale's own chain (`de` for `de-AT`) is formatted
-      // for the locale; one from the default locale, in its own language.
+      // A message of the locale's own chain in its language (`de` for `de-AT`)
+      // is formatted for the locale. Any other (`en` for `ja`, the default
+      // locale) in its own language, whose plural forms it was written with.
       const own = chain.own.has(candidate);
-      const formatLocale = own ? locale : candidate;
+      const formatLocale = own && sameLanguage(locale, candidate) ? locale : candidate;
       let text: string | undefined;
       if (typeof value === 'string') {
         text = value;
