@@ -327,6 +327,16 @@ describe('translation', () => {
       expect(warn).not.toHaveBeenCalled();
     });
 
+    it('falls back to a regional defaultLocale served by its base language', async () => {
+      const { i18n } = await create({
+        defaultLocale: 'en-US',
+        loader: new InMemoryI18nLoader({ en: { hi: 'Hi', bye: 'Bye' }, pl: { hi: 'Cześć' } }),
+      });
+      expect(i18n.exists('bye', 'pl')).toBe(true);
+      expect(i18n.t('bye', { locale: 'pl' })).toBe('Bye');
+      expect(warn).toHaveBeenCalledWith('Missing translation "bye" for locale "pl"; using "en"');
+    });
+
     it('says when the loader returned no catalogs at all', async () => {
       await expect(create({ loader: new InMemoryI18nLoader({}) })).rejects.toThrow(
         `I18nModule: there's no catalog for defaultLocale "en". The loader returned no catalogs.`,

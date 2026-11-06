@@ -288,7 +288,8 @@ export class I18nService<T = I18nRegisteredTranslations>
     }
 
     if (includeDefault) {
-      push(this.defaultLocaleValue);
+      // A regional defaultLocale (`en-US`) is served by its base language (`en`).
+      this.chain(this.defaultLocaleValue, false, lookup).forEach(push);
     }
     return chain;
   }
