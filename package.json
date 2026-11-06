@@ -1,6 +1,6 @@
 {
   "name": "@nestjs/i18n",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Internationalization for NestJS: translate responses, errors, validation messages and GraphQL fields per request, and format dates and prices.",
   "keywords": [
     "nestjs",
