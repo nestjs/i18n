@@ -274,11 +274,23 @@ export class I18nService<T = I18nRegisteredTranslations>
       }
     };
 
+    // Locales compare case-insensitively, as `lookup` does: a `fallbacks` entry
+    // applies to a catalog spelled `de-at`, and may point to one spelled `pt-br`.
+    // The exact spelling still comes first, on both sides: a catalog may be
+    // spelled differently from its supported locale (`pt-BR` and `pt-br`).
     const fallbacks = this.options.fallbacks ?? {};
+    const folded = new Map(Object.entries(fallbacks).map(([from, to]) => [from.toLowerCase(), to]));
     let current: string | undefined = locale;
     while (current && !chain.includes(current)) {
       push(current);
-      current = Object.hasOwn(fallbacks, current) ? fallbacks[current] : undefined;
+      const next: string | undefined = Object.hasOwn(fallbacks, current)
+        ? fallbacks[current]
+        : folded.get(current.toLowerCase());
+      const supported: string | undefined = next && lookup.get(next.toLowerCase());
+      if (supported && supported !== next) {
+        push(next);
+      }
+      current = supported ?? next;
     }
 
     for (const l of chain.slice()) {
