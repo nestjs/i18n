@@ -163,6 +163,30 @@ describe('translation', () => {
       expect(i18n.translate('a', { locale: 'pt' })).toBe('a');
     });
 
+    it('match catalog locales case-insensitively, on both sides', async () => {
+      const { i18n } = await create({
+        loader: new InMemoryI18nLoader({
+          en: { a: 'en-a', b: 'en-b' },
+          'pt-br': { a: 'br-a' },
+          'de-at': {},
+          'de-ch': { b: 'ch-b' },
+        }),
+        fallbacks: { 'pt-PT': 'pt-BR', 'de-AT': 'de-CH' },
+      });
+      expect(i18n.translate('a', { locale: 'pt-PT' })).toBe('br-a');
+      expect(i18n.translate('b', { locale: 'de-AT' })).toBe('ch-b');
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('prefer a fallback target spelled as its catalog to the supported spelling', async () => {
+      const { i18n } = await create({
+        loader: new InMemoryI18nLoader({ en: { a: 'en-a' }, 'pt-BR': { a: 'br-a' } }),
+        supportedLocales: ['en', 'pt-br'],
+        fallbacks: { 'pt-PT': 'pt-BR' },
+      });
+      expect(i18n.translate('a', { locale: 'pt-PT' })).toBe('br-a');
+    });
+
     describe('to another language', () => {
       const pluralCatalogs = {
         de: {},
