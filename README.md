@@ -35,6 +35,12 @@ $ npm i --save @nestjs/i18n
 
 [Overview & Tutorial](https://docs.nestjs.com/application/i18n)
 
+Locale names are matched case-insensitively, including catalog names: a catalog
+named `pt-BR` serves `supportedLocales: ['en', 'pt-br']`. The configured locale
+spelling is preserved in the request context and `Content-Language`. When catalogs
+differ only in case, an exact spelling wins; otherwise the first loaded spelling
+is used.
+
 ## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).

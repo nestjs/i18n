@@ -66,6 +66,8 @@ export class I18nService<T = I18nRegisteredTranslations>
   private supported: string[] = [];
   /** Lower-cased locale → its configured spelling: supported locales and `fallbacks` keys. */
   private lookup = new Map<string, string>();
+  /** Lower-cased locale → its catalog spelling, independent of supported locales. */
+  private catalogLookup = new Map<string, string>();
   /** The longest `lookup` key: no longer prefix of a candidate can match. */
   private longest = 0;
   private chains = new Map<string, Chain>();
@@ -119,7 +121,7 @@ export class I18nService<T = I18nRegisteredTranslations>
     const chain = this.chainOf(locale);
 
     for (const candidate of chain.lookup) {
-      const value = get(catalogs, candidate, key);
+      const value = get(catalogs, this.catalogLookup, candidate, key);
       // A message of the locale's own chain in its language (`de` for `de-AT`)
       // is formatted for the locale. Any other (`en` for `ja`, the default
       // locale) in its own language, whose plural forms it was written with.
@@ -157,7 +159,7 @@ export class I18nService<T = I18nRegisteredTranslations>
   exists(key: string, locale?: string): boolean {
     const catalogs = this.catalogs;
     return this.chainOf(this.localeOf(locale)).lookup.some((candidate) => {
-      const value = get(catalogs, candidate, key);
+      const value = get(catalogs, this.catalogLookup, candidate, key);
       return typeof value === 'string' || typeof ownValue(value, 'other') === 'string';
     });
   }
@@ -379,8 +381,14 @@ export class I18nService<T = I18nRegisteredTranslations>
       }
     }
 
+    const catalogLookup = new Map<string, string>();
+    for (const locale of Object.keys(catalogs)) {
+      if (!catalogLookup.has(locale.toLowerCase())) {
+        catalogLookup.set(locale.toLowerCase(), locale);
+      }
+    }
     const hasCatalog = (locale: string) =>
-      this.chain(locale, false, lookup).some((l) => Object.hasOwn(catalogs, l));
+      this.chain(locale, false, lookup).some((l) => catalogLookup.has(l.toLowerCase()));
     if (!hasCatalog(this.defaultLocaleValue)) {
       const loaded = Object.keys(catalogs);
       throw new Error(
@@ -401,6 +409,7 @@ export class I18nService<T = I18nRegisteredTranslations>
 
     this.supported = supported;
     this.lookup = lookup;
+    this.catalogLookup = catalogLookup;
     this.longest = Math.max(0, ...[...lookup.keys()].map((l) => l.length));
     this.chains = new Map();
   }
@@ -500,10 +509,16 @@ function ownValue(node: unknown, key: string): unknown {
 
 function get(
   catalogs: I18nCatalogs,
+  catalogLookup: ReadonlyMap<string, string>,
   locale: string,
   key: string,
 ): string | I18nCatalog | undefined {
-  let node = ownValue(catalogs, locale);
+  // Preserve an exact catalog when case variants coexist; otherwise use the
+  // catalog's spelling, which may differ from the configured request locale.
+  const catalogLocale = Object.hasOwn(catalogs, locale)
+    ? locale
+    : catalogLookup.get(locale.toLowerCase()) ?? locale;
+  let node = ownValue(catalogs, catalogLocale);
   for (const part of key.split('.')) {
     if (!node || typeof node === 'string') {
       return undefined;
