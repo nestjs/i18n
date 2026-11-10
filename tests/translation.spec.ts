@@ -340,6 +340,103 @@ describe('translation', () => {
   });
 
   describe('startup', () => {
+    it('matches defaultLocale to a catalog in another case', async () => {
+      const { i18n, ref } = await create({
+        loader: new InMemoryI18nLoader({ EN: { hi: 'Hi' } }),
+      });
+      try {
+        expect(i18n.defaultLocale).toBe('en');
+        expect(i18n.t('hi')).toBe('Hi');
+        expect(i18n.exists('hi')).toBe(true);
+      } finally {
+        await ref.close();
+      }
+    });
+
+    it.each(['fallback', 'key', 'empty', 'throw'] as const)(
+      'reads a catalog in another case than its pinned locale with missingKey: %s',
+      async (missingKey) => {
+        const { i18n, ref } = await create({
+          missingKey,
+          supportedLocales: ['en', 'pt-br'],
+          loader: new InMemoryI18nLoader({ en: { hi: 'Hi' }, 'pt-BR': { hi: 'Olá', only: 'Só' } }),
+        });
+        try {
+          expect(i18n.matchLocale('PT-BR')).toBe('pt-br');
+          expect(i18n.supportedLocales).toEqual(['en', 'pt-br']);
+          expect(i18n.t('hi', { locale: 'pt-br' })).toBe('Olá');
+          expect(i18n.exists('only', 'pt-br')).toBe(true);
+          expect(warn).not.toHaveBeenCalled();
+        } finally {
+          await ref.close();
+        }
+      },
+    );
+
+    it('matches a regional defaultLocale to a catalog in another case', async () => {
+      const { i18n, ref } = await create({
+        defaultLocale: 'en-US',
+        loader: new InMemoryI18nLoader({ 'en-us': { hi: 'Hi' } }),
+      });
+      try {
+        expect(i18n.t('hi')).toBe('Hi');
+        expect(i18n.defaultLocale).toBe('en-US');
+      } finally {
+        await ref.close();
+      }
+    });
+
+    it('prefers an exact catalog spelling when catalogs differ only in case', async () => {
+      const { i18n, ref } = await create({
+        supportedLocales: ['en', 'pt-br'],
+        loader: new InMemoryI18nLoader({
+          en: {},
+          'pt-BR': { hi: 'First' },
+          'pt-br': { hi: 'Exact' },
+        }),
+      });
+      try {
+        expect(i18n.t('hi', { locale: 'pt-br' })).toBe('Exact');
+      } finally {
+        await ref.close();
+      }
+    });
+
+    it('reindexes catalog spelling on reload and keeps it after a rejected reload', async () => {
+      let deliver: (catalogs: I18nCatalogs) => void = () => {};
+      class WatchedLoader extends I18nLoader {
+        load() {
+          return { en: { hi: 'Hi' }, 'pt-BR': { hi: 'Olá' } };
+        }
+        watch(onChange: (catalogs: I18nCatalogs) => void) {
+          deliver = onChange;
+          return () => {};
+        }
+      }
+      const { i18n, ref } = await create({
+        supportedLocales: ['en', 'pt-br'],
+        loader: new WatchedLoader(),
+      });
+      const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+      const error = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+      try {
+        await ref.init();
+        expect(i18n.t('hi', { locale: 'pt-br' })).toBe('Olá');
+        deliver({ EN: { hi: 'Hello' }, 'PT-br': { hi: 'Oi' } });
+        expect(i18n.t('hi', { locale: 'pt-br' })).toBe('Oi');
+        expect(i18n.t('hi')).toBe('Hello');
+        deliver({ 'pt-br': { hi: 'Rejected' } });
+        expect(error).toHaveBeenCalledOnce();
+        expect(i18n.t('hi', { locale: 'pt-br' })).toBe('Oi');
+        expect(i18n.exists('hi', 'pt-br')).toBe(true);
+        expect(i18n.t('hi')).toBe('Hello');
+      } finally {
+        log.mockRestore();
+        error.mockRestore();
+        await ref.close();
+      }
+    });
+
     it('adds a regional defaultLocale served by its base language to the supported locales', async () => {
       const { i18n } = await create({
         defaultLocale: 'pl-PL',
