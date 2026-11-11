@@ -268,7 +268,12 @@ export class I18nService<T = I18nRegisteredTranslations>
    * the supported prefixes of each (`zh-Hant-TW` → `zh-Hant` → `zh`), then,
    * unless `includeDefault` is false, `defaultLocale`.
    */
-  private chain(locale: string, includeDefault: boolean, lookup = this.lookup): string[] {
+  private chain(
+    locale: string,
+    includeDefault: boolean,
+    lookup = this.lookup,
+    catalogLookup = this.catalogLookup,
+  ): string[] {
     const chain: string[] = [];
     const push = (l: string | undefined) => {
       if (l && !chain.includes(l)) {
@@ -297,13 +302,13 @@ export class I18nService<T = I18nRegisteredTranslations>
 
     for (const l of chain.slice()) {
       for (let prefix = parentTag(l.toLowerCase()); prefix; prefix = parentTag(prefix)) {
-        push(lookup.get(prefix));
+        push(lookup.get(prefix) ?? catalogLookup?.get(prefix));
       }
     }
 
     if (includeDefault) {
       // A regional defaultLocale (`en-US`) is served by its base language (`en`).
-      this.chain(this.defaultLocaleValue, false, lookup).forEach(push);
+      this.chain(this.defaultLocaleValue, false, lookup, catalogLookup).forEach(push);
     }
     return chain;
   }
@@ -388,7 +393,7 @@ export class I18nService<T = I18nRegisteredTranslations>
       }
     }
     const hasCatalog = (locale: string) =>
-      this.chain(locale, false, lookup).some((l) => catalogLookup.has(l.toLowerCase()));
+      this.chain(locale, false, lookup, catalogLookup).some((l) => catalogLookup.has(l.toLowerCase()));
     if (!hasCatalog(this.defaultLocaleValue)) {
       const loaded = Object.keys(catalogs);
       throw new Error(

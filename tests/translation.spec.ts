@@ -386,6 +386,34 @@ describe('translation', () => {
       }
     });
 
+    it('serves a regional defaultLocale with pinned supportedLocales from its base catalog', async () => {
+      const { i18n, ref } = await create({
+        defaultLocale: 'en-US',
+        supportedLocales: ['en-US'],
+        loader: new InMemoryI18nLoader({ en: { hi: 'Hi' } }),
+      });
+      try {
+        expect(i18n.defaultLocale).toBe('en-US');
+        expect(i18n.supportedLocales).toEqual(['en-US']);
+        expect(i18n.t('hi')).toBe('Hi');
+      } finally {
+        await ref.close();
+      }
+    });
+
+    it('serves a pinned regional supportedLocale from its base catalog without warnings', async () => {
+      const { i18n, ref } = await create({
+        supportedLocales: ['en', 'de-AT'],
+        loader: new InMemoryI18nLoader({ en: { hi: 'Hi' }, de: { hi: 'Hallo' } }),
+      });
+      try {
+        expect(i18n.t('hi', { locale: 'de-AT' })).toBe('Hallo');
+        expect(warn).not.toHaveBeenCalled();
+      } finally {
+        await ref.close();
+      }
+    });
+
     it('prefers an exact catalog spelling when catalogs differ only in case', async () => {
       const { i18n, ref } = await create({
         supportedLocales: ['en', 'pt-br'],
