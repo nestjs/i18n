@@ -288,4 +288,33 @@ describe('Standard Schema messages', () => {
     );
     expect(message).toEqual(['name: too small', 'coupon: Coupon expired']);
   });
+
+  it('I18nStandardSchemaValidationPipe keeps to maxErrorMessagesLength', async () => {
+    const schema: StandardSchemaV1 = {
+      '~standard': {
+        version: 1,
+        vendor: 'test',
+        validate: () => ({
+          issues: [
+            { code: 'too_small', path: ['name'], message: 'Too small' },
+            { code: 'custom', path: ['coupon'], message: 'Coupon expired' },
+            { code: 'custom', path: ['note'], message: 'Note too long' },
+          ] as unknown as StandardSchemaV1.Issue[],
+        }),
+      },
+    };
+    const message = await context.run('en', () =>
+      new I18nStandardSchemaValidationPipe({ namespace: 'errors', maxErrorMessagesLength: 20 })
+        .transform({}, { type: 'body', schema } as never)
+        .then(
+          () => undefined,
+          (e: BadRequestException) => (e.getResponse() as { message: unknown }).message,
+        ),
+    );
+    expect(message).toEqual([
+      'name: too small',
+      'coupon: Coupon expired',
+      'Further validation errors were omitted',
+    ]);
+  });
 });
