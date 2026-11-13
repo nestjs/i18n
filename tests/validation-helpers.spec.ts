@@ -1,4 +1,4 @@
-import { BadRequestException, Logger } from '@nestjs/common';
+import { BadRequestException, Logger, StandardSchemaValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { Type } from 'class-transformer';
@@ -289,7 +289,12 @@ describe('Standard Schema messages', () => {
     expect(message).toEqual(['name: too small', 'coupon: Coupon expired']);
   });
 
-  it('I18nStandardSchemaValidationPipe keeps to maxErrorMessagesLength', async () => {
+  // Older Nest 12.x releases don't have the option.
+  const hasMaxErrorMessagesLength = 'maxErrorMessagesLength' in new StandardSchemaValidationPipe();
+
+  it.runIf(hasMaxErrorMessagesLength)('I18nStandardSchemaValidationPipe keeps to maxErrorMessagesLength', async () => {
+    // Not an inline literal, so it also typechecks where the option is unknown.
+    const options = { namespace: 'errors', maxErrorMessagesLength: 20 };
     const schema: StandardSchemaV1 = {
       '~standard': {
         version: 1,
@@ -304,7 +309,7 @@ describe('Standard Schema messages', () => {
       },
     };
     const message = await context.run('en', () =>
-      new I18nStandardSchemaValidationPipe({ namespace: 'errors', maxErrorMessagesLength: 20 })
+      new I18nStandardSchemaValidationPipe(options)
         .transform({}, { type: 'body', schema } as never)
         .then(
           () => undefined,
