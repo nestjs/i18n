@@ -47,10 +47,12 @@ export class I18nStandardSchemaValidationPipe extends StandardSchemaValidationPi
   protected formatIssueMessages(
     issues: readonly StandardSchemaV1.Issue[],
   ): string[] {
-    return issues.map((issue) =>
-      isTranslatedIssue(issue)
-        ? issue.message
-        : super.formatIssueMessages([issue])[0],
+    // One call, so `maxErrorMessagesLength` counts every message. Without its
+    // path, a translated message isn't prefixed.
+    return super.formatIssueMessages(
+      issues.map((issue) =>
+        isTranslatedIssue(issue) ? { message: issue.message } : issue,
+      ),
     );
   }
 }

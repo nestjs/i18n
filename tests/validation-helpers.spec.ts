@@ -1,4 +1,4 @@
-import { BadRequestException, Logger } from '@nestjs/common';
+import { BadRequestException, Logger, StandardSchemaValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { StandardSchemaV1 } from '@standard-schema/spec';
 import { Type } from 'class-transformer';
@@ -287,5 +287,39 @@ describe('Standard Schema messages', () => {
         ),
     );
     expect(message).toEqual(['name: too small', 'coupon: Coupon expired']);
+  });
+
+  // Older Nest 12.x releases don't have the option.
+  const hasMaxErrorMessagesLength = 'maxErrorMessagesLength' in new StandardSchemaValidationPipe();
+
+  it.runIf(hasMaxErrorMessagesLength)('I18nStandardSchemaValidationPipe keeps to maxErrorMessagesLength', async () => {
+    // Not an inline literal, so it also typechecks where the option is unknown.
+    const options = { namespace: 'errors', maxErrorMessagesLength: 20 };
+    const schema: StandardSchemaV1 = {
+      '~standard': {
+        version: 1,
+        vendor: 'test',
+        validate: () => ({
+          issues: [
+            { code: 'too_small', path: ['name'], message: 'Too small' },
+            { code: 'custom', path: ['coupon'], message: 'Coupon expired' },
+            { code: 'custom', path: ['note'], message: 'Note too long' },
+          ] as unknown as StandardSchemaV1.Issue[],
+        }),
+      },
+    };
+    const message = await context.run('en', () =>
+      new I18nStandardSchemaValidationPipe(options)
+        .transform({}, { type: 'body', schema } as never)
+        .then(
+          () => undefined,
+          (e: BadRequestException) => (e.getResponse() as { message: unknown }).message,
+        ),
+    );
+    expect(message).toEqual([
+      'name: too small',
+      'coupon: Coupon expired',
+      'Further validation errors were omitted',
+    ]);
   });
 });
