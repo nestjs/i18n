@@ -21,27 +21,31 @@ export class MultiSourceI18nLoader extends I18nLoader {
     }
 
     super();
+    this.latest = options.loaders.map(() => ({}));
   }
+
+  /** The last catalogs of each loader, in order. */
+  private latest: I18nCatalogs[];
 
   async load(): Promise<I18nCatalogs> {
-    const catalogsList = await Promise.all(
+    this.latest = await Promise.all(
       this.options.loaders.map((loader) => loader.load()),
     );
-
-    return mergeI18nCatalogs(...catalogsList);
+    return mergeI18nCatalogs(...this.latest);
   }
 
-  /** Watches every loader; a change in any of them reports once to `onChange`. */
-  watch(onChange: (catelogs: I18nCatalogs) => void): () => void {
-    const stops: (() => void)[] = [];
-
-    for (const laoder of this.options.loaders) {
-      if (laoder.watch) {
-        stops.push(laoder.watch(onChange));
-      }
-    }
-
-    return () => stops.forEach((stop) => stop());
+  /**
+   * Watches every loader that can. A change in one of them is merged with the
+   * last catalogs of the others.
+   */
+  watch(onChange: (catalogs: I18nCatalogs) => void): () => void {
+    const stops = this.options.loaders.map((loader, index) =>
+      loader.watch?.((catalogs) => {
+        this.latest = this.latest.with(index, catalogs);
+        onChange(mergeI18nCatalogs(...this.latest));
+      }),
+    );
+    return () => stops.forEach((stop) => stop?.());
   }
 }
 

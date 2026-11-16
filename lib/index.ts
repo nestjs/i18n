@@ -17,6 +17,7 @@ export type {
   I18nNumberFormatOptions,
   I18nTranslateOptions,
   JsonI18nLoaderOptions,
+  MultiSourceI18nLoaderOptions,
   LocaleResolverInput,
 } from './interfaces/index.js';
 

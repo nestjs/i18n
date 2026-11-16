@@ -197,6 +197,19 @@ describe('MultiSourceI18nLoader', () => {
       expect(watchable.stop).toHaveBeenCalledTimes(1);
     });
 
+    it('reports a change merged with the other loaders', async () => {
+      const first = new WatchableLoader({ en: { a: '1', shared: 'first' } });
+      const second = new StubLoader({ en: { b: '2', shared: 'second' } });
+      const loader = new MultiSourceI18nLoader({ loaders: [first, second] });
+      const received: I18nCatalogs[] = [];
+      await loader.load();
+      loader.watch((catalogs) => received.push(catalogs));
+
+      first.watchers[0]({ en: { a: '3', shared: 'first' } });
+
+      expect(received).toEqual([{ en: { a: '3', b: '2', shared: 'second' } }]);
+    });
+
     it('returns a stop function even when nothing is watched', () => {
       const stop = multi({ en: { a: '1' } }).watch(() => {
         throw new Error('never called');
