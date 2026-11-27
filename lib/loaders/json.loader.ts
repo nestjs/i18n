@@ -131,7 +131,8 @@ async function readTree(dir: string, ancestors: string[]): Promise<I18nCatalog> 
     } else if (kind === 'file' && extname(entry.name) === '.json') {
       let content: unknown;
       try {
-        content = JSON.parse(await readFile(full, 'utf8'));
+        // A byte order mark, which some Windows editors write, is not valid JSON.
+        content = JSON.parse((await readFile(full, 'utf8')).replace(/^\uFEFF/, ''));
       } catch (err) {
         throw new Error(`${full}: ${(err as Error).message}`);
       }

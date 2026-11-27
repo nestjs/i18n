@@ -91,6 +91,11 @@ describe('JsonI18nLoader', () => {
     await expect(load()).rejects.toThrow(join(dir, 'en', 'orders.json'));
   });
 
+  it('reads a file saved with a byte order mark', async () => {
+    await write('en/orders.json', `\uFEFF${JSON.stringify({ title: 'Orders' })}`);
+    expect(await load()).toEqual({ en: { users: { hi: 'Hi' }, orders: { title: 'Orders' } } });
+  });
+
   it('keeps a file named like an Object.prototype key as a namespace', async () => {
     await write('en/__proto__.json', { polluted: 'yes' });
     const catalogs = await load();
