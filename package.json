@@ -68,7 +68,7 @@
     "graphql": "16.15.0",
     "graphql-ws": "6.4.3",
     "husky": "9.1.7",
-    "lint-staged": "17.6.2",
+    "lint-staged": "17.6.3",
     "oxlint": "1.95.0",
     "prettier": "3.10.1",
     "reflect-metadata": "0.2.2",
